@@ -72,7 +72,6 @@ Note that this function is applied after the backward pass, but before the optim
         self.critic_optimizer.step()
 
 
-##### &nbsp;
 
 
 ## Results
