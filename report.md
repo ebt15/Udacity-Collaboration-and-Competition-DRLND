@@ -1,63 +1,31 @@
-#### Udacity Deep Reinforcement Learning Nanodegree
-### Project 3: Multi-Agent Collaboration & Competition
-# Train Two RL Agents to Play Tennis
-##### &nbsp;
+# **REPORT**
 
-The write-up below is also available [here as a blog post](https://medium.com/@thomastracey/training-two-agents-to-play-tennis-8285ebfaec5f). 
+# Project III : Collaboration & Competition
 
-## Project Background: Why Multi-agent RL Matters
-For artificial intelligence (AI) to reach its full potential, AI systems need to interact safely and efficiently with humans, as well as other agents. There are already environments where this happens on a daily basis, such as the stock market. And there are future applications that will rely on productive agent-human interactions, such as self-driving cars and other autonomous vehicles.
+## Project Description
 
-One step along this path is to train AI agents to interact with other agents in both cooperative and competitive settings. Reinforcement learning (RL) is a subfield of AI that's shown promise. However, thus far, much of RL's success has been in single agent domains, where building models that predict the behavior of other actors is unnecessary. As a result, traditional RL approaches (such as Q-Learning) are not well-suited for the complexity that accompanies environments where multiple agents are continuously interacting and evolving their policies.
+### 1. Environment
 
-[//]: # (> Unfortunately, traditional reinforcement learning approaches such as Q-Learning or policy gradient
-are poorly suited to multi-agent environments. One issue is that each agent’s policy is changing
-as training progresses, and the environment becomes non-stationary from the perspective of any
-individual agent in a way that is not explainable by changes in the agent’s own policy. This presents
-learning stability challenges and prevents the straightforward use of past experience replay, which is crucial for stabilizing deep Q-learning. Policy gradient methods, on the other hand, usually exhibit very high variance when coordination of multiple agents is required. Alternatively, one can use model-based policy optimization which can learn optimal policies via back-propagation, but this requires
-a differentiable model of the world dynamics and assumptions about the interactions between
-agents. Applying these methods to competitive environments is also challenging from an optimization
-perspective, as evidenced by the notorious instability of adversarial training methods [11].)
+In this environment called Tennis, two agents control rackets to bounce a ball over a net. If an agent hits the ball over the net, it receives a reward of +0.1. If an agent lets a ball hit the ground or hits the ball out of bounds, it receives a reward of -0.01. Thus, the goal of each agent is to keep the ball in play.
 
-[//]: # (https://papers.nips.cc/paper/7217-multi-agent-actor-critic-for-mixed-cooperative-competitive-environments.pdf)
+The observation space of an agent consists of 8 variables. Each action is a 2D vector with entries corresponding to movement toward (or away from) the net, and jumping.
 
-##### &nbsp;
+- **State space** is a `2x24` dimensional continuous tensor, consisting of positions, and velocities of each agent across 3 frames.
 
-## Goal
-The goal of this project is to train two RL agents to play tennis. As in real tennis, the goal of each player is to keep the ball in play. And, when you have two equally matched opponents, you tend to see fairly long exchanges where the players hit the ball back and forth over the net.
+- **Action space** is `2x2` dimentional continuous tensor, corresponding actions for each agent. Every entry in the action tensor should be a number between -1 and 1.
 
-##### &nbsp;
-
-## The Environment
-We'll work with an environment that is similar, but not identical to the [Tennis](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Learning-Environment-Examples.md#tennis) environment on the Unity ML-Agents GitHub page.
-
-In this environment, two agents control rackets to bounce a ball over a net. If an agent hits the ball over the net, it receives a reward of +0.1.  If an agent lets a ball hit the ground or hits the ball out of bounds, it receives a reward of -0.01.  Thus, the goal of each agent is to keep the ball in play.
-
-The observation space consists of 8 variables corresponding to the position and velocity of the ball and racket. Each agent receives its own, local observation.  Two continuous actions are available, corresponding to moves toward (or away from) the net, and jumping.
-
-The task is episodic, and in order to solve the environment, your agents must get an average score of +0.5 (over 100 consecutive episodes, after taking the maximum over both agents). Specifically,
-
-- After each episode, we add up the rewards that each agent received (without discounting), to get a score for each agent. This yields 2 (potentially different) scores. We then take the maximum of these 2 scores.
-- This yields a single **score** for each episode.
-
-The environment is considered solved when the average (over 100 episodes) of those **scores** is at least +0.5.
-
-![Trained Agent][image1]
-
-##### &nbsp;
 
 ## Approach
-Here are the high-level steps taken in building an agent that solves this environment.
 
-1. Establish performance baseline using a random action policy.
-1. Select an appropriate algorithm and begin implementing it.
-1. Run experiments, make revisions, and retrain the agent until the performance threshold is reached.
+To train the Tennis agents I used MDDGP algorithm implementing centralized training and decentralized execution. Each agent receives its own, local observation. Thus it will be possible to simultaneously train both agents through self-play. During training, the critic for each agent uses extra information like states observed and actions
+taken by all other agents. For the actor, there is one for each agent. Each actor has access to only its agents observations and actions. During execution time only actors are present and all observations and actions are used.
 
-WARNING: I ultimately reached a good solution; however, the results were not consistent. My "best" results were only reproducible if I reran the model numerous times (>10). If you just run the model once (or even 3-5 times), it might not converge. And, during the initial implementation, I ran the model at least 30 times while searching for a reliable set of hyperparameters. If you want to experiment with different approaches, I strongly recommend implementing a more systematic approach such as grid search (which I did not do, but wish I had).
+MADDPG (Multi-agent DDPG) class uses 2 DDPG agents similar to what was used in Udacity classroom for previous projects. Also ReplayBuffer is used as a shared buffer between agents. MADDPG combines states, actions, rewards, next_states, dones from both agents and adds them to shared ReplayBuffer. MADDPG act calls act for 2 DDPG agents.
 
 ##### &nbsp;
 
 ### 1. Establish Baseline
+
 Before building agents that learn, I started by testing ones that select actions (uniformly) at random at each time step.
 
 Running the random agents a few times resulted in scores from 0 to 0.02. Obviously, if these agents need to achieve an average score of 0.5 over 100 consecutive episodes, then choosing actions at random won't work. However, when you watch the agents acting randomly, it becomes clear that these types of sporadic actions can be useful early in the training process. That is, they can help the agents explore the action space to find some signal of good vs. bad actions. This insight will come into play later when we implement the Ornstein-Uhlenbeck process and epsilon noise decay.
@@ -105,93 +73,41 @@ You can find the actor-critic logic implemented as part of the `Agent()` class [
 
 Note: As we did with Double Q-Learning in the last project, we're again leveraging local and target networks to improve stability. This is where one set of parameters `w` is used to select the best action, and another set of parameters `w'` is used to evaluate that action. In this project, local and target networks are implemented separately for both the actor and the critic.
 
-```python
-# Actor Network (w/ Target Network)
-self.actor_local = Actor(state_size, action_size, random_seed).to(device)
-self.actor_target = Actor(state_size, action_size, random_seed).to(device)
-self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
+### The Actor-Network is shown below
 
-# Critic Network (w/ Target Network)
-self.critic_local = Critic(state_size, action_size, random_seed).to(device)
-self.critic_target = Critic(state_size, action_size, random_seed).to(device)
-self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
-```
+     # Actor Network (w/ Target Network)
+      self.actor_local = Actor(state_size, action_size, random_seed).to(device)
+      self.actor_target = Actor(state_size, action_size, random_seed).to(device)
+      self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
+    
+### The Critic-Network is shown below
 
-##### &nbsp;
+    # Critic Network (w/ Target Network)
+      self.critic_local = Critic(state_size, action_size, random_seed).to(device)
+      self.critic_target = Critic(state_size, action_size, random_seed).to(device)
+      self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
-#### Exploration vs Exploitation
-One challenge is choosing which action to take while the agent is still learning the optimal policy. Should the agent choose an action based on the rewards observed thus far? Or, should the agent try a new action in hopes of earning a higher reward? This is known as the **exploration vs. exploitation dilemma**.
-
-In the [Navigation project](https://github.com/tommytracey/DeepRL-P1-Navigation), I addressed this by implementing an [𝛆-greedy algorithm](https://github.com/tommytracey/DeepRL-P1-Navigation/blob/master/agent.py#L80). This algorithm allows the agent to systematically manage the exploration vs. exploitation trade-off. The agent "explores" by picking a random action with some probability epsilon `𝛜`. Meanwhile, the agent continues to "exploit" its knowledge of the environment by choosing actions based on the deterministic policy with probability (1-𝛜).
-
-However, this approach won't work for controlling the tennis agents. The reason is that the actions are no longer a discrete set of simple directions (i.e., up, down, left, right). The actions driving the movement of the arm are forces with different magnitudes and directions. If we base our exploration mechanism on random uniform sampling, the direction actions would have a mean of zero, in turn canceling each other out. This can cause the system to oscillate without making much progress.
-
-Instead, we'll use the **Ornstein-Uhlenbeck process**, as suggested in the previously mentioned [paper by Google DeepMind](https://arxiv.org/pdf/1509.02971.pdf) (see bottom of page 4). The Ornstein-Uhlenbeck process adds a certain amount of noise to the action values at each timestep. This noise is correlated to previous noise and therefore tends to stay in the same direction for longer durations without canceling itself out. This allows the agent to maintain velocity and explore the action space with more continuity.
-
-You can find the Ornstein-Uhlenbeck process implemented [here](https://github.com/tommytracey/DeepRL-P3-Collaboration-Competition/blob/master/maddpg_agent.py#L167) in the `OUNoise` class in `maddpg_agent.py` of the source code.
-
-In total, there are five hyperparameters related to this noise process.
-
-The Ornstein-Uhlenbeck process itself has three hyperparameters that determine the noise characteristics and magnitude:
-- mu: the long-running mean
-- theta: the speed of mean reversion
-- sigma: the volatility parameter
-
-Of these, I only tuned sigma. After running a few experiments, I reduced sigma from 0.3 to 0.2. The reduced noise volatility seemed to help the model converge.
-
-Notice also there's an epsilon parameter used to decay the noise level over time. This decay mechanism ensures that more noise is introduced earlier in the training process (i.e., higher exploration), and the noise decreases over time as the agent gains more experience (i.e., higher exploitation). The starting value for epsilon and its decay rate are two hyperparameters that were tuned during experimentation.
-
-You can find the epsilon decay process implemented [here](https://github.com/tommytracey/DeepRL-P3-Collaboration-Competition/blob/master/maddpg_agent.py#L79) in the `Agent.act()` method in `maddpg_agent.py` of the source code. While the epsilon decay is performed [here](https://github.com/tommytracey/DeepRL-P3-Collaboration-Competition/blob/master/maddpg_agent.py#L150) as part of the learning step.
-
-The final noise parameters were set as follows:
-
-```python
-OU_SIGMA = 0.2          # Ornstein-Uhlenbeck noise parameter, volatility
-OU_THETA = 0.15          # Ornstein-Uhlenbeck noise parameter, speed of mean reversion
-EPS_START = 5.0         # initial value for epsilon in noise decay process in Agent.act()
-EPS_EP_END = 300        # episode to end the noise decay process
-EPS_FINAL = 0           # final value for epsilon after decay
-```
-
-**IMPORTANT NOTE:** Notice that the EPS_START parameter is set at 5.0. For dozens of experiments, I had this parameter set to 1.0, as I had in previous projects. But, I had a difficult time getting the model to converge, and if it did, it converged very slowly (>1500 episodes). After much trial and error, I realized that the agents had some difficulty discovering signal early in the process (i.e., most episode scores equaled zero). By boosting the noise output from the Ornstein-Uhlenbeck (OU) process, it encouraged aggressive exploration of the action space and therefore improved the chances that signal would be detected (i.e., making contact with the ball). This extra signal seemed to improve learning later in training once the noise decayed to zero.
-
-##### &nbsp;
-
-#### Learning Interval
-In the first few versions of my implementation, the agent only performed a single learning iteration per episode. Although the best model had this setting, this seemed to be a stroke of luck. In general, I found that performing multiple learning passes per episode yielded faster convergence and higher scores. This did make training slower, but it was a worthwhile trade-off. In the end, I implemented an interval in which the learning step is performed every episode. As part of each learning step, the algorithm then samples experiences from the buffer and runs the `Agent.learn()` method 10 times.
-
-```python
-LEARN_EVERY = 1         # learning interval (no. of episodes)
-LEARN_NUM = 5           # number of passes per learning step
-```
-
-You can find the learning interval implemented [here](https://github.com/tommytracey/DeepRL-P3-Collaboration-Competition/blob/master/maddpg_agent.py#L67) in the `Agent.step()` method in `maddpg_agent.py` of the source code.
-
-##### &nbsp;
 
 #### Gradient Clipping
-In early versions of my implementation, I had trouble getting my agent to learn. Or, rather, it would start to learn but then become very unstable and either plateau or collapse.
 
-I suspect that one of the causes was outsized gradients. Unfortunately, I couldn't find an easy way to investigate this, although I'm sure there's some way of doing this in PyTorch. Absent this investigation, I hypothesize that many of the weights from my critic model were becoming quite large after just 50-100 episodes of training. And since I was running the learning process multiple times per episode, it only made the problem worse.
+Gradient clipping is a technique that tackles exploding gradients. The idea of gradient clipping is very simple: If the gradient gets too large, we rescale it to keep it small.
+Initially, I added batch normalization between every layer in both the actor and critic models. However, this may have been overkill, and seemed to prolong training time. I eventually reduced the use of batch normalization to just the outputs of the first fully-connected layers of both the actor and critic models.
 
-The issue of exploding gradients is described in layman's terms in [this post](https://machinelearningmastery.com/exploding-gradients-in-neural-networks/) by Jason Brownlee. Essentially, each layer of your net amplifies the gradient it receives. This becomes a problem when the lower layers of the network accumulate huge gradients, making their respective weight updates too large to allow the model to learn anything.
-
-To combat this, I implemented gradient clipping using the `torch.nn.utils.clip_grad_norm_` function. I set the function to "clip" the norm of the gradients at 1, therefore placing an upper limit on the size of the parameter updates, and preventing them from growing exponentially. Once this change was implemented, along with batch normalization (discussed in the next section), my model became much more stable and my agent started learning at a much faster rate.
-
-You can find gradient clipping implemented [here](https://github.com/tommytracey/DeepRL-P3-Collaboration-Competition/blob/master/maddpg_agent.py#L128) in the "update critic" section of the `Agent.learn()` method, within `ddpg_agent.py` of the source code.
+Gradient clipping ensures the gradient vector g has norm at most c. This helps gradient descent to have a reasonable behaviour even if the loss landscape of the model is irregular. The following figure shows an example with an extremely steep cliff in the loss landscape. Without clipping, the parameters take a huge descent step and leave the “good” region. With clipping, the descent step size is restricted and the parameters stay in the “good” region.
 
 Note that this function is applied after the backward pass, but before the optimization step.
 
-```python
-# Compute critic loss
-Q_expected = self.critic_local(states, actions)
-critic_loss = F.mse_loss(Q_expected, Q_targets)
-# Minimize the loss
-self.critic_optimizer.zero_grad()
-critic_loss.backward()
-torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
-self.critic_optimizer.step()
-```
+
+      # Compute critic loss
+        Q_expected = self.critic_local(states, actions)
+        critic_loss = F.mse_loss(Q_expected, Q_targets)
+        
+      # Minimize the loss
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        self.critic_optimizer.step()
+
 
 ##### &nbsp;
 
