@@ -27,7 +27,6 @@ Before building agents that learn, I started by testing ones that select actions
 
 Running the random agents a few times resulted in scores from 0 to 0.02. Obviously, if these agents need to achieve an average score of 0.5 over 100 consecutive episodes, then choosing actions at random won't work. However, when you watch the agents acting randomly, it becomes clear that these types of sporadic actions can be useful early in the training process. That is, they can help the agents explore the action space to find some signal of good vs. bad actions. This insight will come into play later when we implement the Ornstein-Uhlenbeck process and epsilon noise decay.
 
-##### &nbsp;
 
 #### Multi-Agent Deep Deterministic Policy Gradient (MADDPG)
 
